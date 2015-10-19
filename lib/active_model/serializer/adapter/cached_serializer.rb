@@ -9,6 +9,11 @@ module ActiveModel
 
         def cache_check(adapter_instance)
           if cached?
+            if read_only?
+              value = @klass._cache.read(cache_key, @klass._cache_options)
+              return value unless value.nil?
+            end
+
             @klass._cache.fetch(cache_key, @klass._cache_options) do
               yield
             end
@@ -25,6 +30,10 @@ module ActiveModel
 
         def fragment_cached?
           @klass._cache_only && !@klass._cache_except || !@klass._cache_only && @klass._cache_except
+        end
+
+        def read_only?
+          @klass._cache_options[:read_only]
         end
 
         def cache_key
