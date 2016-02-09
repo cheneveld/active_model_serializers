@@ -4,12 +4,13 @@ skip_tags: true
 
 environment:
   matrix:
-    - ruby_version: "193"
-    - ruby_version: "193-x64"
     - ruby_version: "200"
     - ruby_version: "200-x64"
     - ruby_version: "21"
     - ruby_version: "21-x64"
+
+cache:
+  - vendor/bundle
 
 install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
@@ -18,9 +19,9 @@ install:
   - gem install bundler
   - bundler --version
   - bundle platform
-  - bundle install --retry=3
+  - bundle install --path=vendor/bundle --retry=3 --jobs=3
 
 test_script:
-  - bundle exec rake test
+  - bundle exec rake ci
 
 build: off

@@ -2,7 +2,7 @@ require 'test_helper'
 
 module ActiveModel
   class Serializer
-    class AssociationsTest < Minitest::Test
+    class AssociationsTest < ActiveSupport::TestCase
       def setup
         @author = Author.new(name: 'Steve K.')
         @author.bio = nil
@@ -32,14 +32,14 @@ module ActiveModel
 
           case key
           when :posts
-            assert_equal({}, options)
-            assert_kind_of(ActiveModel::Serializer.config.array_serializer, serializer)
+            assert_equal({ include_data: true }, options)
+            assert_kind_of(ActiveModelSerializers.config.collection_serializer, serializer)
           when :bio
-            assert_equal({}, options)
+            assert_equal({ include_data: true }, options)
             assert_nil serializer
           when :roles
-            assert_equal({}, options)
-            assert_kind_of(ActiveModel::Serializer.config.array_serializer, serializer)
+            assert_equal({ include_data: true }, options)
+            assert_kind_of(ActiveModelSerializers.config.collection_serializer, serializer)
           else
             flunk "Unknown association: #{key}"
           end
@@ -52,9 +52,9 @@ module ActiveModel
           serializer = association.serializer
           options = association.options
 
-          assert_equal key, :tags
-          assert_equal serializer, nil
-          assert_equal [{ attributes: { name: '#hashtagged' } }].to_json, options[:virtual_value].to_json
+          assert_equal :tags, key
+          assert_nil serializer
+          assert_equal [{ name: '#hashtagged' }].to_json, options[:virtual_value].to_json
         end
       end
 
@@ -80,7 +80,7 @@ module ActiveModel
             flunk "Unknown association: #{key}"
           end
 
-          assert_equal({}, association.options)
+          assert_equal({ include_data: true }, association.options)
         end
       end
 
@@ -126,7 +126,39 @@ module ActiveModel
         assert expected_association_keys.include? :site
       end
 
-      class NamespacedResourcesTest < Minitest::Test
+      class InlineAssociationTestPostSerializer < ActiveModel::Serializer
+        has_many :comments
+        has_many :comments, key: :last_comments do
+          object.comments.last(1)
+        end
+      end
+
+      def test_virtual_attribute_block
+        comment1 = ::ARModels::Comment.create!(contents: 'first comment')
+        comment2 = ::ARModels::Comment.create!(contents: 'last comment')
+        post = ::ARModels::Post.create!(
+          title: 'inline association test',
+          body: 'etc',
+          comments: [comment1, comment2]
+        )
+        actual = serializable(post, adapter: :attributes, serializer: InlineAssociationTestPostSerializer).as_json
+        expected = {
+          :comments =>           [
+            { :id => 1, :contents => 'first comment' },
+            { :id => 2, :contents => 'last comment' }
+          ],
+          :last_comments =>           [
+            { :id => 2, :contents => 'last comment' }
+          ]
+        }
+
+        assert_equal expected, actual
+      ensure
+        ::ARModels::Post.delete_all
+        ::ARModels::Comment.delete_all
+      end
+
+      class NamespacedResourcesTest < ActiveSupport::TestCase
         class ResourceNamespace
           Post    = Class.new(::Model)
           Comment = Class.new(::Model)
@@ -168,7 +200,7 @@ module ActiveModel
         end
       end
 
-      class NestedSerializersTest < Minitest::Test
+      class NestedSerializersTest < ActiveSupport::TestCase
         Post    = Class.new(::Model)
         Comment = Class.new(::Model)
         Author  = Class.new(::Model)
@@ -205,6 +237,29 @@ module ActiveModel
               flunk "Unknown association: #{key}"
             end
           end
+        end
+
+        def test_conditional_associations
+          serializer = Class.new(ActiveModel::Serializer) do
+            belongs_to :if_assoc_included, if: :true
+            belongs_to :if_assoc_excluded, if: :false
+            belongs_to :unless_assoc_included, unless: :false
+            belongs_to :unless_assoc_excluded, unless: :true
+
+            def true
+              true
+            end
+
+            def false
+              false
+            end
+          end
+
+          model = ::Model.new
+          hash = serializable(model, serializer: serializer).serializable_hash
+          expected = { if_assoc_included: nil, unless_assoc_included: nil }
+
+          assert_equal(expected, hash)
         end
       end
     end

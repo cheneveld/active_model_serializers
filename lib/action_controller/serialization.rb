@@ -1,4 +1,5 @@
 require 'active_support/core_ext/class/attribute'
+require 'active_model_serializers/serialization_context'
 
 module ActionController
   module Serialization
@@ -8,6 +9,12 @@ module ActionController
 
     # Deprecated
     ADAPTER_OPTION_KEYS = ActiveModel::SerializableResource::ADAPTER_OPTION_KEYS
+
+    module ClassMethods
+      def serialization_scope(scope)
+        self._serialization_scope = scope
+      end
+    end
 
     included do
       class_attribute :_serialization_scope
@@ -30,8 +37,11 @@ module ActionController
         serializable_resource.serialization_scope ||= serialization_scope
         serializable_resource.serialization_scope_name = _serialization_scope
         begin
-          serializable_resource.adapter
-        rescue ActiveModel::Serializer::ArraySerializer::NoSerializerError
+          # Necessary to ensure we have an adapter for the serializable resource
+          # after it has been figured.
+          # TODO: This logic should be less opaque and probably moved into the SerializableResource.
+          serializable_resource.tap(&:adapter)
+        rescue ActiveModel::Serializer::CollectionSerializer::NoSerializerError
           resource
         end
       else
@@ -46,15 +56,9 @@ module ActionController
 
     [:_render_option_json, :_render_with_renderer_json].each do |renderer_method|
       define_method renderer_method do |resource, options|
-        options.fetch(:context) { options[:context] = request }
+        options.fetch(:serialization_context) { options[:serialization_context] = ActiveModelSerializers::SerializationContext.new(request) }
         serializable_resource = get_serializer(resource, options)
         super(serializable_resource, options)
-      end
-    end
-
-    module ClassMethods
-      def serialization_scope(scope)
-        self._serialization_scope = scope
       end
     end
   end

@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
   spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ['lib']
 
-  spec.required_ruby_version = '>= 1.9.3'
+  spec.required_ruby_version = '>= 2.0.0'
 
   rails_versions = '>= 4.0'
   spec.add_runtime_dependency 'activemodel', rails_versions
@@ -41,10 +41,18 @@ Gem::Specification.new do |spec|
     # 'minitest'
     # 'thread_safe'
 
+  spec.add_development_dependency 'activerecord', rails_versions
+    # arel
+    # activesupport
+    # activemodel
+
   # Soft dependency for pagination
   spec.add_development_dependency 'kaminari', ' ~> 0.16.3'
   spec.add_development_dependency 'will_paginate', '~> 3.0', '>= 3.0.7'
 
   spec.add_development_dependency 'bundler', '~> 1.6'
   spec.add_development_dependency 'timecop', '~> 0.7'
+  spec.add_development_dependency 'minitest-reporters'
+  spec.add_development_dependency 'grape', ['>= 0.13', '< 1.0']
+  spec.add_development_dependency 'json_schema'
 end

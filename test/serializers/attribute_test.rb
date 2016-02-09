@@ -2,9 +2,9 @@ require 'test_helper'
 
 module ActiveModel
   class Serializer
-    class AttributeTest < Minitest::Test
+    class AttributeTest < ActiveSupport::TestCase
       def setup
-        @blog = Blog.new({ id: 1, name: 'AMS Hints', type: 'stuff' })
+        @blog = Blog.new(id: 1, name: 'AMS Hints', type: 'stuff')
         @blog_serializer = AlternateBlogSerializer.new(@blog)
       end
 
@@ -43,6 +43,15 @@ module ActiveModel
         assert_equal({ blog: { id: 'AMS Hints' } }, adapter.serializable_hash)
       end
 
+      def test_object_attribute_override
+        serializer = Class.new(ActiveModel::Serializer) do
+          attribute :name, key: :object
+        end
+
+        adapter = ActiveModel::Serializer::Adapter::Json.new(serializer.new(@blog))
+        assert_equal({ blog: { object: 'AMS Hints' } }, adapter.serializable_hash)
+      end
+
       def test_type_attribute
         attribute_serializer = Class.new(ActiveModel::Serializer) do
           attribute :id, key: :type
@@ -70,6 +79,44 @@ module ActiveModel
         hash = ActiveModel::SerializableResource.new(@blog, adapter: :json, serializer: serializer).serializable_hash
 
         assert_equal('custom', hash[:blog][:id])
+      end
+
+      PostWithVirtualAttribute = Class.new(::Model)
+      class PostWithVirtualAttributeSerializer < ActiveModel::Serializer
+        attribute :name do
+          "#{object.first_name} #{object.last_name}"
+        end
+      end
+
+      def test_virtual_attribute_block
+        post = PostWithVirtualAttribute.new(first_name: 'Lucas', last_name: 'Hosseini')
+        hash = serializable(post).serializable_hash
+        expected = { name: 'Lucas Hosseini' }
+
+        assert_equal(expected, hash)
+      end
+
+      def test_conditional_attributes
+        serializer = Class.new(ActiveModel::Serializer) do
+          attribute :if_attribute_included, if: :true
+          attribute :if_attribute_excluded, if: :false
+          attribute :unless_attribute_included, unless: :false
+          attribute :unless_attribute_excluded, unless: :true
+
+          def true
+            true
+          end
+
+          def false
+            false
+          end
+        end
+
+        model = ::Model.new
+        hash = serializable(model, serializer: serializer).serializable_hash
+        expected = { if_attribute_included: nil, unless_attribute_included: nil }
+
+        assert_equal(expected, hash)
       end
     end
   end

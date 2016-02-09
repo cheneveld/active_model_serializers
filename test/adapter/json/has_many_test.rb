@@ -4,7 +4,7 @@ module ActiveModel
   class Serializer
     module Adapter
       class Json
-        class HasManyTestTest < Minitest::Test
+        class HasManyTestTest < ActiveSupport::TestCase
           def setup
             ActionController::Base.cache_store.clear
             @author = Author.new(id: 1, name: 'Steve K.')
@@ -36,7 +36,7 @@ module ActiveModel
             assert_equal({
               id: 42,
               tags: [
-                { 'attributes' => { 'id' => 1, 'name' => '#hash_tag' } }
+                { 'id' => 1, 'name' => '#hash_tag' }
               ]
             }.to_json, adapter.serializable_hash[:post].to_json)
           end

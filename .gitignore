@@ -21,3 +21,5 @@ tmp
 *.swp
 .ruby-version
 .ruby-gemset
+vendor/bundle
+tags

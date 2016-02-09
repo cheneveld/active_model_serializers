@@ -4,7 +4,7 @@ module ActiveModel
   class Serializer
     module Adapter
       class JsonApi
-        class CollectionTest < Minitest::Test
+        class CollectionTest < ActiveSupport::TestCase
           def setup
             @author = Author.new(id: 1, name: 'Steve K.')
             @author.bio = nil
@@ -19,7 +19,7 @@ module ActiveModel
             @second_post.author = @author
             @author.posts = [@first_post, @second_post]
 
-            @serializer = ArraySerializer.new([@first_post, @second_post])
+            @serializer = CollectionSerializer.new([@first_post, @second_post])
             @adapter = ActiveModel::Serializer::Adapter::JsonApi.new(@serializer)
             ActionController::Base.cache_store.clear
           end
@@ -60,7 +60,7 @@ module ActiveModel
           def test_limiting_fields
             actual = ActiveModel::SerializableResource.new(
               [@first_post, @second_post], adapter: :json_api,
-                                           fields: { posts: ['title'] })
+                                           fields: { posts: %w(title comments blog author) })
                      .serializable_hash
             expected = [
               {

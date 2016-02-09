@@ -4,7 +4,7 @@ module ActiveModel
   class Serializer
     module Adapter
       class JsonApi
-        class HasManyTest < Minitest::Test
+        class HasManyTest < ActiveSupport::TestCase
           def setup
             ActionController::Base.cache_store.clear
             @author = Author.new(id: 1, name: 'Steve K.')
@@ -68,7 +68,7 @@ module ActiveModel
           end
 
           def test_limit_fields_of_linked_comments
-            @adapter = ActiveModel::Serializer::Adapter::JsonApi.new(@serializer, include: [:comments], fields: { comment: [:id] })
+            @adapter = ActiveModel::Serializer::Adapter::JsonApi.new(@serializer, include: [:comments], fields: { comment: [:id, :post, :author] })
             expected = [{
               id: '1',
               type: 'comments',

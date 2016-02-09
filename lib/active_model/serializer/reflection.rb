@@ -1,23 +1,71 @@
+require 'active_model/serializer/field'
+
 module ActiveModel
   class Serializer
     # Holds all the meta-data about an association as it was specified in the
     # ActiveModel::Serializer class.
     #
     # @example
-    #  class PostSerializer < ActiveModel::Serializer
+    #   class PostSerializer < ActiveModel::Serializer
     #     has_one :author, serializer: AuthorSerializer
     #     has_many :comments
-    #  end
+    #     has_many :comments, key: :last_comments do
+    #       object.comments.last(1)
+    #     end
+    #     has_many :secret_meta_data, if: :is_admin?
+    #
+    #     def is_admin?
+    #       current_user.admin?
+    #     end
+    #   end
+    #
+    #  Specifically, the association 'comments' is evaluated two different ways:
+    #  1) as 'comments' and named 'comments'.
+    #  2) as 'object.comments.last(1)' and named 'last_comments'.
     #
     #  PostSerializer._reflections #=>
     #    # [
     #    #   HasOneReflection.new(:author, serializer: AuthorSerializer),
     #    #   HasManyReflection.new(:comments)
+    #    #   HasManyReflection.new(:comments, { key: :last_comments }, #<Block>)
+    #    #   HasManyReflection.new(:secret_meta_data, { if: :is_admin? })
     #    # ]
     #
     # So you can inspect reflections in your Adapters.
     #
-    Reflection = Struct.new(:name, :options) do
+    class Reflection < Field
+      def initialize(*)
+        super
+        @_links = {}
+        @_include_data = true
+      end
+
+      def link(name, value = nil, &block)
+        @_links[name] = block || value
+        nil
+      end
+
+      def meta(value = nil, &block)
+        @_meta = block || value
+        nil
+      end
+
+      def include_data(value = true)
+        @_include_data = value
+        nil
+      end
+
+      def value(serializer)
+        @object = serializer.object
+        @scope = serializer.scope
+
+        if block
+          instance_eval(&block)
+        else
+          serializer.read_attribute_for_serialization(name)
+        end
+      end
+
       # Build association. This method is used internally to
       # build serializer's association by its reflection.
       #
@@ -40,9 +88,10 @@ module ActiveModel
       # @api private
       #
       def build_association(subject, parent_serializer_options)
-        association_value = subject.send(name)
+        association_value = value(subject)
         reflection_options = options.dup
         serializer_class = subject.class.serializer_for(association_value, reflection_options)
+        reflection_options[:include_data] = @_include_data
 
         if serializer_class
           begin
@@ -50,15 +99,19 @@ module ActiveModel
               association_value,
               serializer_options(subject, parent_serializer_options, reflection_options)
             )
-          rescue ActiveModel::Serializer::ArraySerializer::NoSerializerError
+          rescue ActiveModel::Serializer::CollectionSerializer::NoSerializerError
             reflection_options[:virtual_value] = association_value.try(:as_json) || association_value
           end
         elsif !association_value.nil? && !association_value.instance_of?(Object)
           reflection_options[:virtual_value] = association_value
         end
 
-        Association.new(name, serializer, reflection_options)
+        Association.new(name, serializer, reflection_options, @_links, @_meta)
       end
+
+      protected
+
+      attr_accessor :object, :scope
 
       private
 

@@ -1,10 +1,14 @@
+[Back to Guides](../README.md)
+
 # Configuration Options
 
-The following configuration options can be set on `ActiveModel::Serializer.config` inside an initializer.
+The following configuration options can be set on `ActiveModelSerializers.config`,
+preferably inside an initializer.
 
 ## General
 
 - `adapter`: The [adapter](adapters.md) to use. Possible values: `:attributes, :json, :json_api`. Default: `:attributes`.
+- `serializer_lookup_enabled`: When `false`, serializers must be explicitly specified. Default: `true`
 
 ## JSON API
 
@@ -17,3 +21,7 @@ The following configuration options can be set on `ActiveModel::Serializer.confi
     Default: `'1.0'`.
   - `jsonapi_toplevel_meta`: Optional metadata. Not included if empty.
     Default: `{}`.
+
+## Hooks
+
+To run a hook when ActiveModelSerializers is loaded, use `ActiveSupport.on_load(:action_controller) do end`

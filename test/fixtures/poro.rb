@@ -1,55 +1,29 @@
 verbose = $VERBOSE
 $VERBOSE = nil
-class Model
+class Model < ActiveModelSerializers::Model
   FILE_DIGEST = Digest::MD5.hexdigest(File.open(__FILE__).read)
 
-  def self.model_name
-    @_model_name ||= ActiveModel::Name.new(self)
-  end
-
-  def initialize(hash = {})
-    @attributes = hash
-  end
-
-  def cache_key
-    "#{self.class.name.downcase}/#{self.id}-#{self.updated_at.strftime("%Y%m%d%H%M%S%9N")}"
-  end
-
-  def serializable_hash(options = nil)
-    @attributes
-  end
-
-  def read_attribute_for_serialization(name)
-    if name == :id || name == 'id'
-      id
-    else
-      @attributes[name]
-    end
-  end
-
-  def id
-    @attributes[:id] || @attributes['id'] || object_id
-  end
-
   ### Helper methods, not required to be serializable
-  #
-  # Convenience for adding @attributes readers and writers
+
+  # Convenience when not adding @attributes readers and writers
   def method_missing(meth, *args)
     if meth.to_s =~ /^(.*)=$/
-      @attributes[$1.to_sym] = args[0]
-    elsif @attributes.key?(meth)
-      @attributes[meth]
+      attributes[$1.to_sym] = args[0]
+    elsif attributes.key?(meth)
+      attributes[meth]
     else
       super
     end
   end
 
-  def cache_key_with_digest
-    "#{cache_key}/#{FILE_DIGEST}"
+  # required for ActiveModel::AttributeAssignment#_assign_attribute
+  # in Rails 5
+  def respond_to_missing?(method_name, _include_private = false)
+    attributes.key?(method_name.to_s.tr('=', '').to_sym) || super
   end
 
-  def updated_at
-    @attributes[:updated_at] ||= DateTime.now.to_time
+  def cache_key_with_digest
+    "#{cache_key}/#{FILE_DIGEST}"
   end
 end
 
@@ -59,6 +33,7 @@ end
 class ProfileSerializer < ActiveModel::Serializer
   attributes :name, :description
 
+  # TODO: is this used anywhere?
   def arguments_passed_in?
     instance_options[:my_options] == :accessible
   end
@@ -101,6 +76,7 @@ PostSerializer = Class.new(ActiveModel::Serializer) do
     Blog.new(id: 999, name: 'Custom blog')
   end
 
+  # TODO: is this used anywhere?
   def custom_options
     instance_options
   end
@@ -109,10 +85,6 @@ end
 SpammyPostSerializer = Class.new(ActiveModel::Serializer) do
   attributes :id
   has_many :related
-
-  def self.root_name
-    'posts'
-  end
 end
 
 CommentSerializer = Class.new(ActiveModel::Serializer) do
@@ -142,7 +114,7 @@ RoleSerializer = Class.new(ActiveModel::Serializer) do
   attributes :id, :name, :description, :slug
 
   def slug
-    "#{name}-#{id}"
+    "#{object.name}-#{object.id}"
   end
 
   belongs_to :author
@@ -186,7 +158,7 @@ BlogSerializer = Class.new(ActiveModel::Serializer) do
   has_many :articles
 end
 
-PaginatedSerializer = Class.new(ActiveModel::Serializer::ArraySerializer) do
+PaginatedSerializer = Class.new(ActiveModel::Serializer::CollectionSerializer) do
   def json_key
     'paginated'
   end
@@ -217,10 +189,6 @@ AuthorPreviewSerializer = Class.new(ActiveModel::Serializer) do
 end
 
 PostPreviewSerializer = Class.new(ActiveModel::Serializer) do
-  def self.root_name
-    'posts'
-  end
-
   attributes :title, :body, :id
 
   has_many :comments, serializer: CommentPreviewSerializer

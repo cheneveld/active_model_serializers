@@ -2,8 +2,9 @@ require 'test_helper'
 module ActiveModel
   class Serializer
     module Adapter
-      class FragmentCacheTest < Minitest::Test
+      class FragmentCacheTest < ActiveSupport::TestCase
         def setup
+          super
           @spam            = Spam::UnrelatedLink.new(id: 'spam-id-1')
           @author          = Author.new(name: 'Joao M. D. Moura')
           @role            = Role.new(name: 'Great Author', description: nil)
